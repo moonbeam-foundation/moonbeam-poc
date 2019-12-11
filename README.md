@@ -7,7 +7,6 @@ https://docs.google.com/document/d/1EqW5QBKITJzRU-3RsCh_Ruu4d4A2jkxcyo-ewPiMoQU/
 
 Started the project by cloning substrate-node-template.  The following have been added to it:
 * Added contracts module to the runtime at the same revision as the node template (d1cd01c74e8d5550396cb654f9a3f1b641efdf4c)
-* Test
 
 ## Build
 
