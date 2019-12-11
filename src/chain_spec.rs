@@ -7,6 +7,11 @@ use aura_primitives::sr25519::{AuthorityId as AuraId};
 use grandpa_primitives::{AuthorityId as GrandpaId};
 use substrate_service;
 
+//use runtime::{ContractsConfig, MILLICENTS};
+//use contract_chain_runtime::ContractConfig;
+use node_template_runtime::ContractsConfig;
+use node_template_runtime::MILLICENTS;
+
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -108,6 +113,14 @@ fn testnet_genesis(initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId, 
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool) -> GenesisConfig {
+	
+	//let mut contracts_config = ContractsConfig {
+	//	current_schedule: Default::default(),
+	//	gas_price: 1 * MILLICENTS,
+	//};
+	// IMPORTANT: println should only be enabled on development chains!
+	//contracts_config.current_schedule.enable_println = true;
+
 	GenesisConfig {
 		system: Some(SystemConfig {
 			code: WASM_BINARY.to_vec(),
@@ -128,6 +141,10 @@ fn testnet_genesis(initial_authorities: Vec<(AuraId, GrandpaId)>,
 		}),
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+		}),
+		contracts: Some(ContractsConfig {
+			current_schedule: Default::default(),
+			gas_price: 1 * MILLICENTS,
 		}),
 	}
 }
