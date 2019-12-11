@@ -55,6 +55,16 @@ Start a development chain with:
 
 Detailed logs may be shown by running the node with the following environment variables set: `RUST_LOG=debug RUST_BACKTRACE=1 cargo run -- --dev`.
 
+### Interacting with the node
+
+You can interact with the moonbeam node using the polkadot.js apps interface from chrome.  Navigate to:
+
+[https://polkadot.js.org/apps/#/settings](https://polkadot.js.org/apps/#/settings)
+
+In the first remote node dropdown select "Local Node (Own, 127.0.0.1:9944)" and then hit the save button on the bottom right.
+
+You should now be connected to your locally running node.
+
 ### Multi-node local testnet
 
 If you want to see the multi-node consensus algorithm in action locally, then you can create a local testnet with two validator nodes for Alice and Bob, who are the initial authorities of the genesis chain that have been endowed with testnet units.
@@ -89,3 +99,4 @@ cargo run -- \
 ```
 
 Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
+
