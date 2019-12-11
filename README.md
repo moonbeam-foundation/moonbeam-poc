@@ -10,6 +10,13 @@ Here is a list of things which have been done:
 * Added contracts module to the runtime at the same revision as the node-template (d1cd01c74e8d5550396cb654f9a3f1b641efdf4c)
 * Changed references from node-template to moonbeam throughout.
 
+## Download
+```bash
+git clone git@github.com:PureStake/moonbeam.git
+cd moonbeam
+```
+You need to be setup for ssh acccess to our github repository for these commands to work.
+
 ## Build
 
 Install Rust:
@@ -24,7 +31,7 @@ Initialize your Wasm Build environment:
 ./scripts/init.sh
 ```
 
-Build Wasm and native code:
+Build Wasm and native code (this takes a while):
 
 ```bash
 cargo build --release
