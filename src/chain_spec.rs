@@ -1,5 +1,5 @@
 use primitives::{Pair, Public};
-use node_template_runtime::{
+use moonbeam_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
 	SudoConfig, IndicesConfig, SystemConfig, WASM_BINARY, 
 };
@@ -9,8 +9,8 @@ use substrate_service;
 
 //use runtime::{ContractsConfig, MILLICENTS};
 //use contract_chain_runtime::ContractConfig;
-use node_template_runtime::ContractsConfig;
-use node_template_runtime::MILLICENTS;
+use moonbeam_runtime::ContractsConfig;
+use moonbeam_runtime::MILLICENTS;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";

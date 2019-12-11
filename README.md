@@ -5,8 +5,10 @@ A prototype for the Moonbeam node implementation.
 For a document describing the project see here:
 https://docs.google.com/document/d/1EqW5QBKITJzRU-3RsCh_Ruu4d4A2jkxcyo-ewPiMoQU/edit
 
-Started the project by cloning substrate-node-template.  The following have been added to it:
-* Added contracts module to the runtime at the same revision as the node template (d1cd01c74e8d5550396cb654f9a3f1b641efdf4c)
+Here is a list of things which have been done:
+* Cloned substrate-node-template repo as a starting point
+* Added contracts module to the runtime at the same revision as the node-template (d1cd01c74e8d5550396cb654f9a3f1b641efdf4c)
+* Changed references from node-template to moonbeam throughout.
 
 ## Build
 
