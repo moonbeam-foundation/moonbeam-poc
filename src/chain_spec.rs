@@ -1,22 +1,21 @@
-use primitives::{Pair, Public};
+use sp_core::{Pair, Public, sr25519};
 use moonbeam_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
-	SudoConfig, IndicesConfig, SystemConfig, WASM_BINARY, 
+	SudoConfig, IndicesConfig, SystemConfig, WASM_BINARY, Signature
 };
-use aura_primitives::sr25519::{AuthorityId as AuraId};
+use sp_consensus_aura::sr25519::{AuthorityId as AuraId};
 use grandpa_primitives::{AuthorityId as GrandpaId};
-use substrate_service;
+use sc_service;
+use sp_runtime::traits::{Verify, IdentifyAccount};
 
-//use runtime::{ContractsConfig, MILLICENTS};
-//use contract_chain_runtime::ContractConfig;
-use moonbeam_runtime::ContractsConfig;
-use moonbeam_runtime::MILLICENTS;
+// added for contracts pallet
+use moonbeam_runtime::{ContractsConfig, MILLICENTS};
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::ChainSpec<GenesisConfig>;
 
 /// The chain specification option. This is expected to come in from the CLI and
 /// is little more than one of a number of alternatives which can easily be converted
@@ -36,8 +35,17 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 		.public()
 }
 
+type AccountPublic = <Signature as Verify>::Signer;
+
+/// Helper function to generate an account ID from seed
+pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId where
+	AccountPublic: From<<TPublic::Pair as Pair>::Public>
+{
+	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
+}
+
 /// Helper function to generate an authority key for Aura
-pub fn get_authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) { 
+pub fn get_authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 	(
 		get_from_seed::<AuraId>(s),
 		get_from_seed::<GrandpaId>(s),
@@ -54,12 +62,12 @@ impl Alternative {
 				|| testnet_genesis(vec![
 					get_authority_keys_from_seed("Alice"),
 				],
-				get_from_seed::<AccountId>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				vec![
-					get_from_seed::<AccountId>("Alice"),
-					get_from_seed::<AccountId>("Bob"),
-					get_from_seed::<AccountId>("Alice//stash"),
-					get_from_seed::<AccountId>("Bob//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
 				],
 				true),
 				vec![],
@@ -74,21 +82,21 @@ impl Alternative {
 				|| testnet_genesis(vec![
 					get_authority_keys_from_seed("Alice"),
 					get_authority_keys_from_seed("Bob"),
-				], 
-				get_from_seed::<AccountId>("Alice"),
+				],
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				vec![
-					get_from_seed::<AccountId>("Alice"),
-					get_from_seed::<AccountId>("Bob"),
-					get_from_seed::<AccountId>("Charlie"),
-					get_from_seed::<AccountId>("Dave"),
-					get_from_seed::<AccountId>("Eve"),
-					get_from_seed::<AccountId>("Ferdie"),
-					get_from_seed::<AccountId>("Alice//stash"),
-					get_from_seed::<AccountId>("Bob//stash"),
-					get_from_seed::<AccountId>("Charlie//stash"),
-					get_from_seed::<AccountId>("Dave//stash"),
-					get_from_seed::<AccountId>("Eve//stash"),
-					get_from_seed::<AccountId>("Ferdie//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Alice"),
+					get_account_id_from_seed::<sr25519::Public>("Bob"),
+					get_account_id_from_seed::<sr25519::Public>("Charlie"),
+					get_account_id_from_seed::<sr25519::Public>("Dave"),
+					get_account_id_from_seed::<sr25519::Public>("Eve"),
+					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
 				true),
 				vec![],
@@ -110,16 +118,16 @@ impl Alternative {
 }
 
 fn testnet_genesis(initial_authorities: Vec<(AuraId, GrandpaId)>,
-	root_key: AccountId, 
+	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
-	_enable_println: bool) -> GenesisConfig {
-	
-	//let mut contracts_config = ContractsConfig {
-	//	current_schedule: Default::default(),
-	//	gas_price: 1 * MILLICENTS,
-	//};
+	enable_println: bool) -> GenesisConfig {
+	//added for contracts pallet
+	let mut contracts_config = ContractsConfig {
+		current_schedule: Default::default(),
+		gas_price: 1 * MILLICENTS,
+	};
 	// IMPORTANT: println should only be enabled on development chains!
-	//contracts_config.current_schedule.enable_println = true;
+	contracts_config.current_schedule.enable_println = enable_println;
 
 	GenesisConfig {
 		system: Some(SystemConfig {
@@ -142,9 +150,7 @@ fn testnet_genesis(initial_authorities: Vec<(AuraId, GrandpaId)>,
 		grandpa: Some(GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		}),
-		contracts: Some(ContractsConfig {
-			current_schedule: Default::default(),
-			gas_price: 1 * MILLICENTS,
-		}),
+		// added for contracts pallet
+		contracts: Some(contracts_config),
 	}
 }
