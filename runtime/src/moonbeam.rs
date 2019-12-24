@@ -20,19 +20,19 @@ pub trait Trait: balances::Trait {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Moonbeam {
-        /// The glmr balance of each user.
+		/// The glmr balance of each user.
 		GlmrBalances get(glmr_balance_of): map T::AccountId => T::Balance;
 		/// The glmr pool balance
 		GlmrPoolBalance get(glmr_pool_balance): T::Balance;
 
-        /// The token balance of each user.
+		/// The token balance of each user.
 		TokenBalances get(token_balance_of): map T::AccountId => T::Balance;
 		/// The token pool balance
 		TokenPoolBalance get(token_pool_balance): T::Balance;
 
 		/// The total liquid supply.
 		TotalLiquidSupply get(total_liquid_supply): T::Balance;
-        /// The liquid balance of each user.
+		/// The liquid balance of each user.
 		LiquidBalances get(liquid_balance_of): map T::AccountId => T::Balance;
 
 		/// Current token price scratch placeholder.
