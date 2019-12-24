@@ -11,6 +11,9 @@ use sp_runtime::traits::{Verify, IdentifyAccount};
 // added for contracts pallet
 use moonbeam_runtime::{ContractsConfig, MILLICENTS};
 
+// added to change token symbol
+use serde_json;
+
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -55,6 +58,13 @@ pub fn get_authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
 	pub(crate) fn load(self) -> Result<ChainSpec, String> {
+		// set token symbol to be GLMR
+		let data = r#"
+                {
+                        "tokenSymbol": "GLMR"
+                }"#;
+        let properties = serde_json::from_str(data).unwrap();
+
 		Ok(match self {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
@@ -73,7 +83,7 @@ impl Alternative {
 				vec![],
 				None,
 				None,
-				None,
+				properties,
 				None
 			),
 			Alternative::LocalTestnet => ChainSpec::from_genesis(

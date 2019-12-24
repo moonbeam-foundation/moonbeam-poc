@@ -12,13 +12,13 @@ pub use sc_cli::{VersionInfo, IntoExit, error};
 
 fn main() -> Result<(), cli::error::Error> {
 	let version = VersionInfo {
-		name: "Substrate Node",
+		name: "Moonbeam Node",
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
-		executable_name: "node-template",
-		author: "Anonymous",
-		description: "Template Node",
-		support_url: "support.anonymous.an",
+		executable_name: "moonbeam",
+		author: "PureStake",
+		description: "Moonbeam Node",
+		support_url: "www.purestake.com",
 	};
 
 	cli::run(std::env::args(), cli::Exit, version)
