@@ -9,6 +9,9 @@ Here is a list of things which have been done:
 * Cloned substrate-node-template repo as a starting point
 * Added contracts module to the runtime at the same revision as the node-template (d1cd01c74e8d5550396cb654f9a3f1b641efdf4c)
 * Changed references from node-template to moonbeam throughout.
+* Rebase code against updated node-template (40a16efefc070faf5a25442bc3ae1d0ea2478eee) and re-integrat contracts module to get contracts working with latest polkadot-js apps.
+* Configured token symbol to be GLMR
+* Initial checkin for Moonbeam runtime implementing initial set of functions for Moonbeam Dex backend.
 
 ## Download
 ```bash
