@@ -21,7 +21,10 @@ cd moonbeam
 You need to be setup for ssh acccess to our github repository for these commands to work.
 
 ## Build
-
+Install gcc (compiler)
+```bash
+sudo apt install build-essential
+```
 Install Rust:
 
 ```bash
