@@ -142,6 +142,7 @@ decl_module! {
 				// add liquidity to pool
 				ensure!(glmr_reserve > T::Balance::from(0), "There is liquidity in this exchange but the glmr reserve is empty");
 				let token_amount = glmr_value * token_reserve / glmr_reserve + T::Balance::from(1);
+				ensure!(token_amount <= sender_token_balance, "You do not have enough tokens to complete the deposit");
 				liquid_minted = glmr_value * total_liquid_supply / glmr_reserve;
 
 				<GlmrBalances<T>>::insert(&sender, sender_glmr_balance - glmr_value);
