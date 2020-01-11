@@ -1,9 +1,8 @@
 # Moonbeam
 
-A prototype for the Moonbeam node implementation. 
+A proof of concept for the Moonbeam node implementation. 
 
-For a document describing the project see here:
-https://docs.google.com/document/d/1EqW5QBKITJzRU-3RsCh_Ruu4d4A2jkxcyo-ewPiMoQU/edit
+Moonbeam is a developer platform for creating DeFi applications that target users and assets on Polkadot, Substrate, and other chains.
 
 Here is a list of things which have been done:
 * Cloned substrate-node-template repo as a starting point
@@ -11,14 +10,13 @@ Here is a list of things which have been done:
 * Changed references from node-template to moonbeam throughout.
 * Rebase code against updated node-template (40a16efefc070faf5a25442bc3ae1d0ea2478eee) and re-integrat contracts module to get contracts working with latest polkadot-js apps.
 * Configured token symbol to be GLMR
-* Initial checkin for Moonbeam runtime implementing initial set of functions for Moonbeam Dex backend.
+* Initial checkin for Moonbeam runtime implementing initial set of functions for Moonbeam Dex proof of concept.
 
 ## Download
 ```bash
-git clone git@github.com:PureStake/moonbeam.git
+git clone https://github.com/PureStake/moonbeam
 cd moonbeam
 ```
-You need to be setup for ssh acccess to our github repository for these commands to work.
 
 ## Build
 Install Package Dependencies:
