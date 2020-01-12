@@ -2,8 +2,9 @@
 /// Moonbeam Runtime
 /// 
 /// Prototype implementation for Moonbeam, a smart contract de-fi parachain.
-/// This includes a simplified implementation of the Uniswap protocol. Needless
-/// to say all of the dex functionality is inspired 100% by Uniswap.
+/// This includes a simple implementation of a token trading system based on
+/// a constant product market making formula (x * y = k) similar to how the
+/// Uniswap protocol on Ethereum works.
 /// 
 /// Derek Yoo
 /// derek@purestake.com
@@ -12,7 +13,7 @@
 
 use frame_support::{decl_module, decl_storage, decl_event, dispatch, ensure};
 use system::{ensure_signed, ensure_root};
-use sp_runtime::traits::Saturating;
+use sp_runtime::traits::{CheckedAdd, Saturating};
 use sp_std::convert::TryInto;
 
 pub trait Trait: balances::Trait {
@@ -31,10 +32,10 @@ decl_storage! {
 		/// The token pool balance
 		TokenPoolBalance get(token_pool_balance): T::Balance;
 
-		/// The total liquid supply.
-		TotalLiquidSupply get(total_liquid_supply): T::Balance;
 		/// The liquid balance of each user.
 		LiquidBalances get(liquid_balance_of): map T::AccountId => T::Balance;
+		/// The total liquid supply.
+		TotalLiquidSupply get(total_liquid_supply): T::Balance;
 
 		/// Current price of 1 token in glmr - replace with callable readonly function
 		TokenPrice get(token_price): T::Balance;
@@ -119,13 +120,13 @@ decl_module! {
 			Ok(())
 		}
 
-		/// This function allows users to deposit liquidity into this exchange.
+		/// This function allows users to deposit liquidity into this market.
 		/// A deposit consists of some number of gmlr tokens and the token arg is
-		/// ignored.  In the case that the liquidity pool is being initialized, both
-		/// the specified glmr and token specified amounts are used for the initial deposit.
-		/// In return the user will recieve a deposit of liquid.
+		/// ignored in all but the first deposit.  In the case that the liquidity pool is being 
+		/// initialized, both the specified glmr and token specified amounts are used for the 
+		/// initial deposit.  In return the user will recieve a deposit of liquid.
 		/// Liquid tokens give the user a right to a share of the profits generated
-		/// by trading on the exchange.
+		/// by trading on the market.
 		fn deposit_liquidity(origin, glmr_value: T::Balance, token_value: T::Balance) -> dispatch::Result {
 			let sender = ensure_signed(origin)?;
 			let sender_glmr_balance = Self::glmr_balance_of(&sender);
@@ -145,15 +146,36 @@ decl_module! {
 				ensure!(token_amount <= sender_token_balance, "You do not have enough tokens to complete the deposit");
 				liquid_minted = glmr_value * total_liquid_supply / glmr_reserve;
 
-				<GlmrBalances<T>>::insert(&sender, sender_glmr_balance - glmr_value);
-				<GlmrPoolBalance<T>>::put(glmr_reserve.saturating_add(glmr_value));
+				let glmr_newbal = match glmr_reserve.checked_add(&glmr_value) {
+					Some(val) => val,
+					None => return Err("Glmr reserve balance overflow"),
+				};
 
-				<TokenPoolBalance<T>>::put(token_reserve.saturating_add(token_amount));
-				<TokenBalances<T>>::insert(&sender, sender_token_balance - token_amount);
+				let token_newbal = match token_reserve.checked_add(&token_amount) {
+					Some(val) => val,
+					None => return Err("Token reserve balance overflow"),
+				};
 
-				<TotalLiquidSupply<T>>::put(total_liquid_supply.saturating_add(liquid_minted));
 				let sender_liquid_balance = Self::liquid_balance_of(&sender);
-				<LiquidBalances<T>>::insert(&sender, sender_liquid_balance.saturating_add(liquid_minted));
+				let liquid_newbal = match sender_liquid_balance.checked_add(&liquid_minted) {
+					Some(val) => val,
+					None => return Err("User liquid balance overflow"),
+				};
+
+				let liquid_supply_newbal = match total_liquid_supply.checked_add(&liquid_minted) {
+					Some(val) => val,
+					None => return Err("Liquid supply balance overflow"),
+				};
+
+				<GlmrBalances<T>>::insert(&sender, sender_glmr_balance - glmr_value);
+				<GlmrPoolBalance<T>>::put(glmr_newbal);
+
+				<TokenBalances<T>>::insert(&sender, sender_token_balance - token_amount);
+				<TokenPoolBalance<T>>::put(token_newbal);
+				
+				<LiquidBalances<T>>::insert(&sender, liquid_newbal);
+				<TotalLiquidSupply<T>>::put(liquid_supply_newbal);
+				
 
 			} else {
 				// initialize liquidity pool
@@ -196,14 +218,24 @@ decl_module! {
 			ensure!(glmr_amount <= glmr_reserve, "Trying to withdraw more GLMR than is in the pool");
 			let sender_token_balance = Self::token_balance_of(&sender);
 			ensure!(token_amount <= token_reserve, "Trying to withdraw more Token than is in the pool");
+
+			let glmr_newbal = match sender_glmr_balance.checked_add(&glmr_amount) {
+				Some(val) => val,
+				None => return Err("Glmr user balance overflow"),
+			};
+
+			let token_newbal = match sender_token_balance.checked_add(&token_amount) {
+				Some(val) => val,
+				None => return Err("Token user balance overflow"),
+			};
 			
 			<LiquidBalances<T>>::insert(&sender, sender_liquid_balance - liquid_value);
 			<TotalLiquidSupply<T>>::put(total_liquid_supply - liquid_value);
 			
-			<GlmrBalances<T>>::insert(&sender, sender_glmr_balance.saturating_add(glmr_amount));
+			<GlmrBalances<T>>::insert(&sender, glmr_newbal);
 			<GlmrPoolBalance<T>>::put(glmr_reserve - glmr_amount);
 			
-			<TokenBalances<T>>::insert(&sender, sender_token_balance.saturating_add(token_amount));
+			<TokenBalances<T>>::insert(&sender, token_newbal);
 			<TokenPoolBalance<T>>::put(token_reserve - token_amount);
 			
 			Self::update_prices();
@@ -212,34 +244,6 @@ decl_module! {
 			Ok(())
 		}
 
-		/// function to price glmr in terms of tokens
-		fn get_glmr_to_token_price(origin, glmr_value: T::Balance) -> dispatch::Result {
-			let _sender = ensure_signed(origin)?;
-			ensure!(glmr_value > T::Balance::from(0), "No glmr specified to price tokens");
-
-			let glmr_reserve = Self::glmr_pool_balance();
-			let token_reserve = Self::token_pool_balance();
-			// hack, this needs to be fixed.
-			<TokenPrice<T>>::put(Self::get_price(glmr_value, glmr_reserve, token_reserve).unwrap());
-			//Self::get_price(glmr_value, glmr_reserve, token_reserve)
-
-			Ok(())
-		}
-
-		/// function to price tokens in terms of glmr
-		fn get_token_to_glmr_price(origin, token_value: T::Balance) -> dispatch::Result {
-			let _sender = ensure_signed(origin)?;
-			ensure!(token_value > T::Balance::from(0), "No tokens specified to price glmr");
-
-			let glmr_reserve = Self::glmr_pool_balance();
-			let token_reserve = Self::token_pool_balance();
-			// hack, this needs to be fixed.
-			<GlmrPrice<T>>::put(Self::get_price(token_value, token_reserve, glmr_reserve).unwrap());
-			//Self::get_price(token_value, token_reserve, glmr_reserve)
-
-			Ok(())
-		}
-		
 		/// users can call this function to execute a trade of glmr to tokens.
 		/// the number of tokens you get for a specified input number of glmr
 		/// is algorithmically determined by the x * y = k constant product
@@ -251,19 +255,34 @@ decl_module! {
 
 			let glmr_reserve = Self::glmr_pool_balance();
 			let token_reserve = Self::token_pool_balance();
-			let tokens_bought = Self::get_price(glmr_value, glmr_reserve, token_reserve).unwrap_or(T::Balance::from(0));
+
+			let tokens_bought = match Self::get_price(glmr_value, glmr_reserve, token_reserve) {
+				Some(val) => val,
+				None => return Err("Error caluculating number of tokens in trade"),
+			};
+
 			let sender_glmr_balance = Self::glmr_balance_of(&sender);
 			ensure!(sender_glmr_balance >= glmr_value, "Not enough glmr to execute trade");
 			let sender_token_balance = Self::token_balance_of(&sender);
 			ensure!(token_reserve >= tokens_bought, "Not enough tokens to execute trade");
 
+			let glmr_pool_newbal = match glmr_reserve.checked_add(&glmr_value) {
+				Some(val) => val,
+				None => return Err("GLMR pool balance overflow"),
+			};
+
+			let token_newbal = match sender_token_balance.checked_add(&tokens_bought) {
+				Some(val) => val,
+				None => return Err("User token balance overflow"),
+			};
+
 			// tranfer glmr in
-			<GlmrPoolBalance<T>>::put(glmr_reserve.saturating_add(glmr_value));
 			<GlmrBalances<T>>::insert(&sender, sender_glmr_balance - glmr_value);
+			<GlmrPoolBalance<T>>::put(glmr_pool_newbal);
 
 			// transfer token out
+			<TokenBalances<T>>::insert(&sender, token_newbal);
 			<TokenPoolBalance<T>>::put(token_reserve - tokens_bought);
-			<TokenBalances<T>>::insert(&sender, sender_token_balance.saturating_add(tokens_bought));
 
 			Self::update_prices();
 			Self::deposit_event(RawEvent::TokenPurchase(sender, tokens_bought));
@@ -281,19 +300,34 @@ decl_module! {
 
 			let glmr_reserve = Self::glmr_pool_balance();
 			let token_reserve = Self::token_pool_balance();
-			let glmr_bought = Self::get_price(token_value, token_reserve, glmr_reserve).unwrap_or(T::Balance::from(0));
+
+			let glmr_bought = match Self::get_price(token_value, token_reserve, glmr_reserve) {
+				Some(val) => val,
+				None => return Err("Error caluculating number of GLMR in trade"),
+			};
+
 			let sender_token_balance = Self::token_balance_of(&sender);
 			ensure!(sender_token_balance >= token_value, "Not enough tokens to execute trade");
 			let sender_glmr_balance = Self::glmr_balance_of(&sender);
 			ensure!(glmr_reserve >= glmr_bought, "Not enough glmr to execute trade");
 
+			let token_pool_newbal = match token_reserve.checked_add(&token_value) {
+				Some(val) => val,
+				None => return Err("Token pool balance overflow"),
+			};
+
+			let glmr_newbal = match sender_glmr_balance.checked_add(&glmr_bought) {
+				Some(val) => val,
+				None => return Err("User GLMR balance overflow"),
+			};
+
 			// tranfer token in
-			<TokenPoolBalance<T>>::put(token_reserve + token_value);
 			<TokenBalances<T>>::insert(&sender, sender_token_balance - token_value);
+			<TokenPoolBalance<T>>::put(token_pool_newbal);
 
 			// transfer glmr out
+			<GlmrBalances<T>>::insert(&sender, glmr_newbal);
 			<GlmrPoolBalance<T>>::put(glmr_reserve - glmr_bought);
-			<GlmrBalances<T>>::insert(&sender, sender_glmr_balance.saturating_add(glmr_bought));
 
 			Self::update_prices();
 			Self::deposit_event(RawEvent::GlmrPurchase(sender, glmr_bought));
@@ -318,20 +352,41 @@ decl_event!(
 
 impl<T: Trait> Module<T> {
 	fn get_price(amount: T::Balance, input_reserve: T::Balance, output_reserve: T::Balance) -> Option<T::Balance> {
-		//ensure!(input_reserve > T::Balance::from(0), "There is no input reserve");
-		//ensure!(output_reserve > T::Balance::from(0), "There is no output reserve");
 		if amount <= T::Balance::from(0) || input_reserve <= T::Balance::from(0) || output_reserve <= T::Balance::from(0) {
 			return None	
 		}
 
-		//let net_amount = amount * T::Balance::from(997);
-		let net_amount = TryInto::<u128>::try_into(amount).unwrap_or(0) * 997;
-		let numerator = net_amount * TryInto::<u128>::try_into(output_reserve).unwrap_or(0);
-		let denominator = (TryInto::<u128>::try_into(input_reserve).unwrap_or(0).saturating_mul(1000))
-			.saturating_add(net_amount);
+		let net_amount = match TryInto::<u128>::try_into(amount) {
+			Ok(converted_val) => match converted_val.checked_mul(997) {
+				Some(result_val) => result_val,
+				None => return None,
+			},
+			Err(_e) => return None,
+		};
 
-		// need to come back and fix this.
-		let result = numerator.checked_div(denominator).unwrap_or(0);
+		let numerator = match TryInto::<u128>::try_into(output_reserve) {
+			Ok(converted_val) => match converted_val.checked_mul(net_amount) {
+				Some(result_val) => result_val,
+				None => return None,
+			},
+			Err(_e) => return None,
+		};
+
+		let denominator = match TryInto::<u128>::try_into(input_reserve) {
+			Ok(converted_val) => match converted_val.checked_mul(1000) {
+				Some(multiplied_val) => match multiplied_val.checked_add(net_amount) {
+					Some(result_val) => result_val,
+					None => return None,
+				}
+				None => return None,
+			},
+			Err(_e) => return None,
+		};
+
+		let result = match numerator.checked_div(denominator) {
+			Some(val) => val,
+			None => return None,
+		};
 
 		result.try_into().ok()
 	}
@@ -342,7 +397,7 @@ impl<T: Trait> Module<T> {
 		let glmr_price = Self::get_price(1000000000000u128.try_into().unwrap_or(T::Balance::from(0)), token_reserve, glmr_reserve);
 		let token_price = Self::get_price(1000000000000u128.try_into().unwrap_or(T::Balance::from(0)), glmr_reserve, token_reserve);
 
-		if ! glmr_price.is_none() {
+		if ! glmr_price.is_none() && ! token_price.is_none() {
 			<GlmrPrice<T>>::put(glmr_price.unwrap());
 			<TokenPrice<T>>::put(token_price.unwrap());
 		}
