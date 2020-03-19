@@ -14,8 +14,8 @@ Here is a list of things which have been done:
 
 ## Download
 ```bash
-git clone https://github.com/PureStake/moonbeam
-cd moonbeam
+git clone https://github.com/PureStake/moonbeam-poc
+cd moonbeam-poc
 ```
 
 ## Build
